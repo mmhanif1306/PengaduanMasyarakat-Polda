@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('nama');
             $table->string('email')->unique();
             $table->string('password');
+            $table->string('public_id')->nullable();
+            $table->string('url_file')->nullable();
             $table->enum('role', ['user', 'admin']);
             $table->rememberToken();
             $table->timestamps();

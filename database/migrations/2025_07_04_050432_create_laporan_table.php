@@ -17,6 +17,10 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->string('judul');
             $table->text('deskripsi');
+            $table->string('provinsi');
+            $table->string('kota');
+            $table->string('kecamatan');
+            $table->string('kelurahan');
             $table->text('alamat');
             $table->string('longitude');
             $table->string('latitude');
