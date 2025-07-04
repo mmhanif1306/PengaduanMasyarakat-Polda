@@ -154,6 +154,7 @@ class AuthController extends Controller
         $notifikasi->judul = "Profile berhasil diupdate";
         $notifikasi->deskripsi = "Profile berhasil diupdate dengan email " . $user->email . " dan nama " . $user->nama;
         $notifikasi->save();
+        
         return redirect()->route('profile')->with('success', 'Profile berhasil diupdate');
     }
 }

@@ -54,7 +54,7 @@ class LaporanController extends Controller
         $totalItems = $query->count();
 
         // Paginate results with 9 items per page
-        $laporan = $query->paginate(9)->withQueryString();
+        $laporan = $query->paginate(10)->withQueryString();
 
         // Get current filter status
         $currentFilters = [
@@ -116,7 +116,7 @@ class LaporanController extends Controller
         $totalItems = $query->count();
 
         // Paginate results with 9 items per page
-        $laporan = $query->paginate(9)->withQueryString();
+        $laporan = $query->paginate(10)->withQueryString();
 
         // Get current filter status
         $currentFilters = [
