@@ -53,5 +53,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Laporan::class, 'user_id');
     }
+
+    public function notifikasi()
+    {
+        return $this->hasMany(Notifikasi::class, 'user_id');
+    }
 }
 
