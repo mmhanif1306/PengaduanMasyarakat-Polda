@@ -24,6 +24,8 @@ class User extends Authenticatable
         'nama',
         'email',
         'password',
+        'public_id',
+        'url_file',
     ];
 
     /**
