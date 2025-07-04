@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\Auth\CreateRequest;
-use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\Auth\UpdateRequest;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use stdClass;
+use App\Models\User;
+use App\Models\Notifikasi;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\RedirectResponse;
+use App\Http\Requests\Auth\LoginRequest;
+use Illuminate\Support\Facades\Password;
+use App\Http\Requests\Auth\CreateRequest;
+use App\Http\Requests\Auth\UpdateRequest;
 
 class AuthController extends Controller
 {
@@ -62,6 +63,12 @@ class AuthController extends Controller
         if (!$user) {
             return redirect()->back()->with('error', 'Gagal membuat user');
         }
+
+        $notifikasi = new Notifikasi();
+        $notifikasi->user_id = $user->id;
+        $notifikasi->judul = "Registrasi berhasil";
+        $notifikasi->deskripsi = "Registrasi berhasil dengan email " . $user->email . " atas nama " . $user->nama;
+        $notifikasi->save();
 
         // Login user setelah registrasi
         Auth::login($user);
@@ -141,6 +148,12 @@ class AuthController extends Controller
         if ($oldImage) {
             cloudinary()->uploadApi()->destroy($oldImage);
         }
+
+        $notifikasi = new Notifikasi();
+        $notifikasi->user_id = $user->id;
+        $notifikasi->judul = "Profile berhasil diupdate";
+        $notifikasi->deskripsi = "Profile berhasil diupdate dengan email " . $user->email . " dan nama " . $user->nama;
+        $notifikasi->save();
         return redirect()->route('profile')->with('success', 'Profile berhasil diupdate');
     }
 }

@@ -2,25 +2,132 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Models\Laporan;
+use App\Models\Notifikasi;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\Laporan\CreateRequest;
 use App\Http\Requests\Laporan\UpdateRequest;
-use Illuminate\Http\Request;
-use App\Models\Laporan;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 
 class LaporanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $laporan = Laporan::all();
-        return view('laporan.index', compact('laporan'));
+        $query = Laporan::query();
+
+        // Search functionality
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('deskripsi', 'like', "%{$search}%")
+                  ->orWhere('provinsi', 'like', "%{$search}%")
+                  ->orWhere('kota', 'like', "%{$search}%")
+                  ->orWhere('kecamatan', 'like', "%{$search}%")
+                  ->orWhere('kelurahan', 'like', "%{$search}%")
+                  ->orWhere('alamat', 'like', "%{$search}%");
+            });
+        }
+
+        // Status filter
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        // Location filter
+        if ($request->has('provinsi') && $request->provinsi != '') {
+            $query->where('provinsi', $request->provinsi);
+        }
+
+        if ($request->has('kota') && $request->kota != '') {
+            $query->where('kota', $request->kota);
+        }
+
+        // Get unique status for filter dropdown
+        $statuses = Laporan::distinct('status')->pluck('status')->filter();
+
+        // Get unique provinces for filter dropdown
+        $provinces = Laporan::distinct('provinsi')->pluck('provinsi')->filter();
+
+        // Get total items for current filter
+        $totalItems = $query->count();
+
+        // Paginate results with 9 items per page
+        $laporan = $query->paginate(9)->withQueryString();
+
+        // Get current filter status
+        $currentFilters = [
+            'search' => $request->search ?? '',
+            'status' => $request->status ?? '',
+            'provinsi' => $request->provinsi ?? '',
+            'kota' => $request->kota ?? '',
+            'total_items' => $totalItems
+        ];
+
+        return view('dashboard', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
     }
 
-    public function riwayatLaporan()
+    public function riwayatLaporan(Request $request)
     {
-        $laporan = Laporan::where('user_id', Auth::id())->get();
-        return view('laporan.riwayat', compact('laporan'));
+        $query = Laporan::where('user_id', Auth::id());
+
+        // Search functionality
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('deskripsi', 'like', "%{$search}%")
+                  ->orWhere('provinsi', 'like', "%{$search}%")
+                  ->orWhere('kota', 'like', "%{$search}%")
+                  ->orWhere('kecamatan', 'like', "%{$search}%")
+                  ->orWhere('kelurahan', 'like', "%{$search}%")
+                  ->orWhere('alamat', 'like', "%{$search}%");
+            });
+        }
+
+        // Status filter
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        // Location filter
+        if ($request->has('provinsi') && $request->provinsi != '') {
+            $query->where('provinsi', $request->provinsi);
+        }
+
+        if ($request->has('kota') && $request->kota != '') {
+            $query->where('kota', $request->kota);
+        }
+
+        // Get unique status for filter dropdown (only from user's reports)
+        $statuses = Laporan::where('user_id', Auth::id())
+                          ->distinct('status')
+                          ->pluck('status')
+                          ->filter();
+
+        // Get unique provinces for filter dropdown (only from user's reports)
+        $provinces = Laporan::where('user_id', Auth::id())
+                           ->distinct('provinsi')
+                           ->pluck('provinsi')
+                           ->filter();
+
+        // Get total items for current filter
+        $totalItems = $query->count();
+
+        // Paginate results with 9 items per page
+        $laporan = $query->paginate(9)->withQueryString();
+
+        // Get current filter status
+        $currentFilters = [
+            'search' => $request->search ?? '',
+            'status' => $request->status ?? '',
+            'provinsi' => $request->provinsi ?? '',
+            'kota' => $request->kota ?? '',
+            'total_items' => $totalItems
+        ];
+
+        return view('laporan.riwayat', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
     }
 
     public function detailLaporan(int $id)
@@ -66,6 +173,12 @@ class LaporanController extends Controller
             cloudinary()->uploadApi()->destroy($image['public_id']);
             return redirect()->back()->with('error', 'Gagal membuat laporan');
         }
+
+        $notifikasi = new Notifikasi();
+        $notifikasi->user_id = $laporan->user_id;
+        $notifikasi->judul = "Laporan berhasil dibuat";
+        $notifikasi->deskripsi = "Laporan dengan judul " . $laporan->judul . " berhasil dibuat";
+        $notifikasi->save();
 
         return redirect()->route('laporan.index')->with('success', 'Laporan berhasil dibuat');
     }
@@ -125,6 +238,13 @@ class LaporanController extends Controller
         if ($oldImage) {
             cloudinary()->uploadApi()->destroy($oldImage);
         }
+
+        $notifikasi = new Notifikasi();
+        $notifikasi->user_id = $laporan->user_id;
+        $notifikasi->judul = "Laporan berhasil diupdate";
+        $notifikasi->deskripsi = "Laporan dengan judul " . $laporan->judul . " berhasil diupdate";
+        $notifikasi->save();
+
         return redirect()->route('laporan.index')->with('success', 'Laporan berhasil diubah');
     }
 
@@ -147,6 +267,13 @@ class LaporanController extends Controller
         if (!$laporan) {
             return redirect()->back()->with('error', 'Gagal menghapus laporan');
         }
+
+        $notifikasi = new Notifikasi();
+        $notifikasi->user_id = $laporan->user_id;
+        $notifikasi->judul = "Laporan berhasil dihapus";
+        $notifikasi->deskripsi = "Laporan dengan judul " . $laporan->judul . " berhasil dihapus";
+        $notifikasi->save();
+
         return redirect()->route('laporan.index')->with('success', 'Laporan berhasil dihapus');
     }
 }
