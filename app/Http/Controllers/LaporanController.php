@@ -21,12 +21,12 @@ class LaporanController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', "%{$search}%")
-                  ->orWhere('deskripsi', 'like', "%{$search}%")
-                  ->orWhere('provinsi', 'like', "%{$search}%")
-                  ->orWhere('kota', 'like', "%{$search}%")
-                  ->orWhere('kecamatan', 'like', "%{$search}%")
-                  ->orWhere('kelurahan', 'like', "%{$search}%")
-                  ->orWhere('alamat', 'like', "%{$search}%");
+                    ->orWhere('deskripsi', 'like', "%{$search}%")
+                    ->orWhere('provinsi', 'like', "%{$search}%")
+                    ->orWhere('kota', 'like', "%{$search}%")
+                    ->orWhere('kecamatan', 'like', "%{$search}%")
+                    ->orWhere('kelurahan', 'like', "%{$search}%")
+                    ->orWhere('alamat', 'like', "%{$search}%");
             });
         }
 
@@ -77,12 +77,12 @@ class LaporanController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', "%{$search}%")
-                  ->orWhere('deskripsi', 'like', "%{$search}%")
-                  ->orWhere('provinsi', 'like', "%{$search}%")
-                  ->orWhere('kota', 'like', "%{$search}%")
-                  ->orWhere('kecamatan', 'like', "%{$search}%")
-                  ->orWhere('kelurahan', 'like', "%{$search}%")
-                  ->orWhere('alamat', 'like', "%{$search}%");
+                    ->orWhere('deskripsi', 'like', "%{$search}%")
+                    ->orWhere('provinsi', 'like', "%{$search}%")
+                    ->orWhere('kota', 'like', "%{$search}%")
+                    ->orWhere('kecamatan', 'like', "%{$search}%")
+                    ->orWhere('kelurahan', 'like', "%{$search}%")
+                    ->orWhere('alamat', 'like', "%{$search}%");
             });
         }
 
@@ -102,15 +102,15 @@ class LaporanController extends Controller
 
         // Get unique status for filter dropdown (only from user's reports)
         $statuses = Laporan::where('user_id', Auth::id())
-                          ->distinct('status')
-                          ->pluck('status')
-                          ->filter();
+            ->distinct('status')
+            ->pluck('status')
+            ->filter();
 
         // Get unique provinces for filter dropdown (only from user's reports)
         $provinces = Laporan::where('user_id', Auth::id())
-                           ->distinct('provinsi')
-                           ->pluck('provinsi')
-                           ->filter();
+            ->distinct('provinsi')
+            ->pluck('provinsi')
+            ->filter();
 
         // Get total items for current filter
         $totalItems = $query->count();
@@ -183,7 +183,8 @@ class LaporanController extends Controller
         return redirect()->route('laporan.index')->with('success', 'Laporan berhasil dibuat');
     }
 
-    public function edit (int $id) {
+    public function edit(int $id)
+    {
         $laporan = Laporan::findOrFail($id);
         return response()->json($laporan);
     }

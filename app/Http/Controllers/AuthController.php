@@ -52,7 +52,7 @@ class AuthController extends Controller
     public function create(CreateRequest $request)
     {
         $data = $request->validated();
-        
+
         $user = new user();
         $user->nik = $data['nik'];
         $user->nama = $data['nama'];
@@ -154,7 +154,7 @@ class AuthController extends Controller
         $notifikasi->judul = "Profile berhasil diupdate";
         $notifikasi->deskripsi = "Profile berhasil diupdate dengan email " . $user->email . " dan nama " . $user->nama;
         $notifikasi->save();
-        
+
         return redirect()->route('profile')->with('success', 'Profile berhasil diupdate');
     }
 }
