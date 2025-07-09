@@ -26,7 +26,13 @@ class AuthController extends Controller
         $credentials = $request->validated();
         if (Auth::attempt($credentials, $request->has('remember'))) {
             $request->session()->regenerate();
-            return redirect()->route('inventaris'); // Redirect ke halaman inventaris
+            
+            // Redirect berdasarkan role user
+            if (Auth::user()->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            }
+            
+            return redirect()->route('dashboard'); // Redirect ke halaman dashboard user
         }
 
         return back()->withErrors([
@@ -56,6 +62,7 @@ class AuthController extends Controller
         $user = new user();
         $user->nik = $data['nik'];
         $user->nama = $data['nama'];
+        $user->no_telp = $data['no_telp'];
         $user->email = $data['email'];
         $user->password = Hash::make($data['password']);
         $user->role = 'user'; // Atur role default sebagai user
@@ -73,9 +80,9 @@ class AuthController extends Controller
         // Login user setelah registrasi
         Auth::login($user);
 
-        // Redirect ke halaman dashboard dengan pesan
-        return redirect()->route('inventaris')
-            ->with('success', 'Registrasi berhasil!');
+        // Redirect ke halaman dashboard dengan pesan (user baru selalu role 'user')
+        return redirect()->route('dashboard')
+            ->with('success', 'Registrasi berhasil! Selamat datang di sistem pengaduan masyarakat.');
     }
 
     // public function forgotPassword()
@@ -101,7 +108,7 @@ class AuthController extends Controller
 
     public function profile()
     {
-        return view('auth.profile');
+        return view('user.profile');
     }
 
     public function showProfile()
@@ -137,6 +144,9 @@ class AuthController extends Controller
         }
         if ($request->has('email')) {
             $user->email = $data['email'];
+        }
+        if ($request->has('no_telp')) {
+            $user->no_telp = $data['no_telp'];
         }
         $user->save();
         if (!$user) {

@@ -22,8 +22,9 @@ class CreateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "nik" => "required|unique:users,nik",
+            "nik" => "required|string|digits:16|unique:users,nik",
             "nama" => "required|string|max:255",
+            "no_telp" => "required|unique:users,no_telp|digits_between:10,13|regex:/^08[0-9]{8,11}$/",
             "email" => "required|email|unique:users,email",
             "password" => "required|min:8",
             "password_confirmation" => "required|min:8|same:password",
@@ -34,10 +35,15 @@ class CreateRequest extends FormRequest
     {
         return [
             "nik.required" => "NIK wajib diisi",
+            "nik.length" => "NIK harus 16 karakter",
             "nik.unique" => "NIK sudah terdaftar",
             "nama.required" => "Nama wajib diisi",
             "nama.string" => "Nama harus berupa string",
             "nama.max" => "Nama maksimal 255 karakter",
+            "no_telp.required" => "Nomor telepon wajib diisi",
+            "no_telp.regex" => "Nomor telepon tidak valid",
+            "no_telp.unique" => "Nomor telepon sudah terdaftar",
+            "no_telp.digits_between" => "Nomor telepon minimal 10 digit dan maksimal 13 digit",
             "email.required" => "Email wajib diisi",
             "email.email" => "Email tidak valid",
             "email.unique" => "Email sudah terdaftar",

@@ -65,6 +65,11 @@ class LaporanController extends Controller
         return view('admin.laporan.index', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
     }
 
+    public function show(Laporan $laporan)
+    {
+        return view('admin.laporan.show', compact('laporan'));
+    }
+
     public function updateStatus(Laporan $laporan, Request $request)
     {
 

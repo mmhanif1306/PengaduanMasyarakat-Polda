@@ -15,11 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('nik')->unique();
             $table->string('nama');
+            $table->string('no_telp')->unique();
             $table->string('email')->unique();
             $table->string('password');
             $table->string('public_id')->nullable();
             $table->string('url_file')->nullable();
-            $table->enum('role', ['user', 'admin']);
+            $table->enum('role', ['user', 'admin'])->default('user');
             $table->rememberToken();
             $table->timestamps();
         });

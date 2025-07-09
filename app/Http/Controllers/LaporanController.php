@@ -14,7 +14,7 @@ class LaporanController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Laporan::query();
+        $query = Laporan::where('user_id', Auth::id());
 
         // Search functionality
         if ($request->has('search') && $request->search != '') {
@@ -65,69 +65,7 @@ class LaporanController extends Controller
             'total_items' => $totalItems
         ];
 
-        return view('dashboard', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
-    }
-
-    public function riwayatLaporan(Request $request)
-    {
-        $query = Laporan::where('user_id', Auth::id());
-
-        // Search functionality
-        if ($request->has('search') && $request->search != '') {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('judul', 'like', "%{$search}%")
-                    ->orWhere('deskripsi', 'like', "%{$search}%")
-                    ->orWhere('provinsi', 'like', "%{$search}%")
-                    ->orWhere('kota', 'like', "%{$search}%")
-                    ->orWhere('kecamatan', 'like', "%{$search}%")
-                    ->orWhere('kelurahan', 'like', "%{$search}%")
-                    ->orWhere('alamat', 'like', "%{$search}%");
-            });
-        }
-
-        // Status filter
-        if ($request->has('status') && $request->status != '') {
-            $query->where('status', $request->status);
-        }
-
-        // Location filter
-        if ($request->has('provinsi') && $request->provinsi != '') {
-            $query->where('provinsi', $request->provinsi);
-        }
-
-        if ($request->has('kota') && $request->kota != '') {
-            $query->where('kota', $request->kota);
-        }
-
-        // Get unique status for filter dropdown (only from user's reports)
-        $statuses = Laporan::where('user_id', Auth::id())
-            ->distinct('status')
-            ->pluck('status')
-            ->filter();
-
-        // Get unique provinces for filter dropdown (only from user's reports)
-        $provinces = Laporan::where('user_id', Auth::id())
-            ->distinct('provinsi')
-            ->pluck('provinsi')
-            ->filter();
-
-        // Get total items for current filter
-        $totalItems = $query->count();
-
-        // Paginate results with 9 items per page
-        $laporan = $query->paginate(10)->withQueryString();
-
-        // Get current filter status
-        $currentFilters = [
-            'search' => $request->search ?? '',
-            'status' => $request->status ?? '',
-            'provinsi' => $request->provinsi ?? '',
-            'kota' => $request->kota ?? '',
-            'total_items' => $totalItems
-        ];
-
-        return view('laporan.riwayat', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
+        return view('user.laporan.index', compact('laporan', 'statuses', 'provinces', 'currentFilters'));
     }
 
     public function detailLaporan(int $id)
@@ -136,7 +74,10 @@ class LaporanController extends Controller
         if (!$laporan) {
             return redirect()->back()->with('error', 'Laporan tidak ditemukan');
         }
-        return view('laporan.detail', compact('laporan'));
+        if ($laporan->user_id != Auth::user()->id) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke laporan ini');
+        }
+        return view('user.laporan.show', compact('laporan'));
     }
 
     public function create(CreateRequest $request)
@@ -180,13 +121,22 @@ class LaporanController extends Controller
         $notifikasi->deskripsi = "Laporan dengan judul " . $laporan->judul . " berhasil dibuat";
         $notifikasi->save();
 
-        return redirect()->route('laporan.index')->with('success', 'Laporan berhasil dibuat');
+        return redirect()->route('dashboard')->with('success', 'Laporan berhasil dibuat');
     }
 
     public function edit(int $id)
     {
         $laporan = Laporan::findOrFail($id);
-        return response()->json($laporan);
+        if (!$laporan) {
+            return redirect()->back()->with('error', 'Laporan tidak ditemukan');
+        }
+        if ($laporan->user_id != Auth::user()->id) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke laporan ini');
+        }
+        if ($laporan->status != 'menunggu') {
+            return redirect()->back()->with('error', 'Laporan tidak dapat diubah');
+        }
+        return view('user.laporan.create', compact('laporan'));
     }
 
     public function update(int $id, UpdateRequest $request)
