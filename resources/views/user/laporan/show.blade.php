@@ -166,23 +166,22 @@
                                                 <p class="text-gray-900 font-mono text-sm">{{ $laporan->longitude }}</p>
                                             </div>
                                         </div>
-                                        
-
                                     @endif
                                 </div>
                             </div>
 
                             <!-- 2.5. Peta Lokasi -->
                             @if ($laporan->latitude && $laporan->longitude)
-                            <div class="bg-blue-50 rounded-xl p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    🗺️ Peta Lokasi Kejadian
-                                </h3>
-                                <div class="bg-white rounded-lg border border-blue-200 overflow-hidden shadow-sm">
-                                    <div id="map" class="w-full h-[500px]"></div>
+                                <div class="bg-blue-50 rounded-xl p-6">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                        🗺️ Peta Lokasi Kejadian
+                                    </h3>
+                                    <div class="bg-white rounded-lg border border-blue-200 overflow-hidden shadow-sm">
+                                        <div id="map" class="w-full h-[500px]"></div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">📍 Lokasi kejadian berdasarkan koordinat yang
+                                        dilaporkan. Klik marker untuk melihat detail lokasi.</p>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">📍 Lokasi kejadian berdasarkan koordinat yang dilaporkan. Klik marker untuk melihat detail lokasi.</p>
-                            </div>
                             @endif
 
                             <!-- 3. Isi Laporan -->
@@ -420,49 +419,56 @@
 @endsection
 
 @push('scripts')
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ env('GOOGLE_MAPS_API_KEY') }}&callback=initMap"></script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key={{ env('GOOGLE_MAPS_API_KEY') }}&callback=initMap"></script>
 
-<script>
-let map;
-let marker;
+    <script>
+        let map;
+        let marker;
 
-function initMap() {
-    @if($laporan->latitude && $laporan->longitude)
-        const lat = {{ $laporan->latitude }};
-        const lng = {{ $laporan->longitude }};
-        
-        // Initialize Google Map
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: { lat: lat, lng: lng },
-            zoom: 15,
-            mapTypeId: google.maps.MapTypeId.ROADMAP,
-            styles: [
-                {
-                    featureType: 'poi',
-                    elementType: 'labels',
-                    stylers: [{ visibility: 'on' }]
-                }
-            ]
-        });
-        
-        // Custom marker
-        marker = new google.maps.Marker({
-            position: { lat: lat, lng: lng },
-            map: map,
-            title: '{{ addslashes($laporan->judul) }}',
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: '#ef4444',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 3
-            }
-        });
-        
-        // Info window
-        const infoWindow = new google.maps.InfoWindow({
-            content: `
+        function initMap() {
+            @if ($laporan->latitude && $laporan->longitude)
+                const lat = {{ $laporan->latitude }};
+                const lng = {{ $laporan->longitude }};
+
+                // Initialize Google Map
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: {
+                        lat: lat,
+                        lng: lng
+                    },
+                    zoom: 15,
+                    mapTypeId: google.maps.MapTypeId.ROADMAP,
+                    styles: [{
+                        featureType: 'poi',
+                        elementType: 'labels',
+                        stylers: [{
+                            visibility: 'on'
+                        }]
+                    }]
+                });
+
+                // Custom marker
+                marker = new google.maps.Marker({
+                    position: {
+                        lat: lat,
+                        lng: lng
+                    },
+                    map: map,
+                    title: '{{ addslashes($laporan->judul) }}',
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 10,
+                        fillColor: '#ef4444',
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 3
+                    }
+                });
+
+                // Info window
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
                 <div style="min-width: 250px; font-family: system-ui, -apple-system, sans-serif; padding: 10px;">
                     <h3 style="margin: 0 0 10px 0; font-weight: 600; color: #1f2937; font-size: 16px;">{{ addslashes($laporan->judul) }}</h3>
                     <div style="margin: 8px 0; padding: 8px; background-color: #f9fafb; border-radius: 6px;">
@@ -472,18 +478,17 @@ function initMap() {
                     </div>
                 </div>
             `
-        });
-        
-        // Open info window on marker click
-        marker.addListener('click', () => {
-            infoWindow.open(map, marker);
-        });
-        
-        // Open info window by default
-        infoWindow.open(map, marker);
-        
-    @else
-        document.getElementById('map').innerHTML = `
+                });
+
+                // Open info window on marker click
+                marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                });
+
+                // Open info window by default
+                infoWindow.open(map, marker);
+            @else
+                document.getElementById('map').innerHTML = `
             <div class="flex items-center justify-center h-full text-gray-500 bg-gray-50 rounded-lg">
                 <div class="text-center">
                     <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -495,14 +500,14 @@ function initMap() {
                 </div>
             </div>
         `;
-    @endif
-}
+            @endif
+        }
 
-// Fallback if Google Maps fails to load
-window.addEventListener('load', function() {
-    setTimeout(function() {
-        if (typeof google === 'undefined') {
-            document.getElementById('map').innerHTML = `
+        // Fallback if Google Maps fails to load
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof google === 'undefined') {
+                    document.getElementById('map').innerHTML = `
                 <div class="flex items-center justify-center h-full text-gray-500 bg-gray-50 rounded-lg">
                     <div class="text-center">
                         <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -513,8 +518,8 @@ window.addEventListener('load', function() {
                     </div>
                 </div>
             `;
-        }
-    }, 5000);
-});
-</script>
+                }
+            }, 5000);
+        });
+    </script>
 @endpush

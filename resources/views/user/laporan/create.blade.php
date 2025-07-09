@@ -111,6 +111,14 @@
                     <div class="form-step" id="step2">
                         <div class="space-y-6">
                             <!-- Wilayah -->
+                            <!-- API Status Indicator -->
+                            <div id="apiStatusIndicator" class="mb-4 p-3 rounded-lg border hidden">
+                                <div class="flex items-center">
+                                    <div id="statusIcon" class="w-3 h-3 rounded-full mr-2"></div>
+                                    <span id="statusText" class="text-sm font-medium"></span>
+                                </div>
+                            </div>
+                            
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <!-- Provinsi -->
                                 <div class="group">
@@ -447,28 +455,30 @@
 
 @push('scripts')
 <script>
-console.log('🚀 JavaScript file loaded successfully!');
-console.log('📅 Timestamp:', new Date().toISOString());
+// JavaScript initialization
 
 // Multi-step form functionality
 let currentStep = 1;
 const totalSteps = 3;
 
-// API Configuration
-const NUSAKITA_API = 'https://api.nusakita.yuefii.site/v2';
+// Configuration - Using Local Proxy API
+        const WILAYAH_API = '{{ url("/api/wilayah") }}';
+        const API_TIMEOUT = 10000; // 10 seconds
+        const MAX_RETRIES = 3;
+        
+        // Add detailed logging for debugging
+// API Configuration loaded
 let map, modalMap, marker, modalMarker;
 let selectedLat, selectedLng;
 let provinceData = {}; // Store province data with codes
 let cityData = {}; // Store city data with codes
 let districtData = {}; // Store district data with codes
+let isOfflineMode = false; // Track if we're in offline mode
 
-console.log('⚙️ Variables initialized');
-console.log('🌐 API Base URL:', NUSAKITA_API);
+// Variables initialized
 
 // Initialize when document is ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM Content Loaded - Starting initialization...');
-    
     // Check if required elements exist
     const requiredElements = ['provinsi', 'nextBtn', 'prevBtn', 'submitBtn'];
     const missingElements = [];
@@ -477,32 +487,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const element = document.getElementById(id);
         if (!element) {
             missingElements.push(id);
-            console.error('❌ Missing element:', id);
-        } else {
-            console.log('✅ Found element:', id);
         }
     });
     
     if (missingElements.length > 0) {
-        console.error('🚨 Critical Error: Missing required DOM elements:', missingElements);
+        console.error('Missing required DOM elements:', missingElements);
         alert('Error: Beberapa elemen form tidak ditemukan. Silakan refresh halaman.');
         return;
     }
     
-    console.log('🎯 All required elements found, proceeding with initialization...');
-    
     try {
         initializeForm();
-        console.log('✅ Form initialized');
         
+        // Load provinces immediately when page loads
         loadProvinces();
-        console.log('🔄 Province loading started');
         
         setupImagePreview();
-        console.log('✅ Image preview setup');
-        
         setupLocationHandlers();
-        console.log('✅ Location handlers setup');
         
     } catch (error) {
         console.error('💥 Error during initialization:', error);
@@ -511,10 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     @if(isset($laporan))
         // Pre-fill form for edit mode
-        setTimeout(() => {
-            setSelectedValue('provinsi', '{{ $laporan->provinsi }}');
-            loadCities('{{ $laporan->provinsi }}', '{{ $laporan->kota }}');
-        }, 1000);
+        waitForProvincesAndAutoFill();
     @endif
 });
 
@@ -523,8 +521,27 @@ function initializeForm() {
     const prevBtn = document.getElementById('prevBtn');
     const submitBtn = document.getElementById('submitBtn');
     
-    nextBtn.addEventListener('click', nextStep);
-    prevBtn.addEventListener('click', prevStep);
+    if (!nextBtn || !prevBtn || !submitBtn) {
+        console.error('Required button elements not found');
+        return;
+    }
+    
+    // Remove any existing event listeners
+    nextBtn.removeEventListener('click', nextStep);
+    prevBtn.removeEventListener('click', prevStep);
+    
+    // Add event listeners
+    nextBtn.addEventListener('click', function(e) {
+        console.log('🔄 Next button clicked!');
+        e.preventDefault();
+        nextStep();
+    });
+    
+    prevBtn.addEventListener('click', function(e) {
+        console.log('🔄 Previous button clicked!');
+        e.preventDefault();
+        prevStep();
+    });
     
     updateStepDisplay();
 }
@@ -547,17 +564,24 @@ function prevStep() {
 
 function updateStepDisplay() {
     // Hide all steps
-    document.querySelectorAll('.form-step').forEach(step => {
+    document.querySelectorAll('.form-step').forEach((step, index) => {
         step.classList.remove('active');
     });
     
     // Show current step
-    document.getElementById(`step${currentStep}`).classList.add('active');
+    const currentStepElement = document.getElementById(`step${currentStep}`);
+    if (currentStepElement) {
+        currentStepElement.classList.add('active');
+    } else {
+        console.error(`Step element not found: step${currentStep}`);
+    }
     
     // Update progress bar
     const progressBar = document.getElementById('progressBar');
-    const progressWidth = (currentStep / totalSteps) * 100;
-    progressBar.style.width = progressWidth + '%';
+    if (progressBar) {
+        const progressWidth = (currentStep / totalSteps) * 100;
+        progressBar.style.width = progressWidth + '%';
+    }
     
     // Update step labels
     document.querySelectorAll('.step-label').forEach((label, index) => {
@@ -573,13 +597,19 @@ function updateStepDisplay() {
     const prevBtn = document.getElementById('prevBtn');
     const submitBtn = document.getElementById('submitBtn');
     
-    prevBtn.style.display = currentStep === 1 ? 'none' : 'flex';
-    nextBtn.style.display = currentStep === totalSteps ? 'none' : 'flex';
-    submitBtn.style.display = currentStep === totalSteps ? 'flex' : 'none';
+    if (nextBtn && prevBtn && submitBtn) {
+        prevBtn.style.display = currentStep === 1 ? 'none' : 'flex';
+        nextBtn.style.display = currentStep === totalSteps ? 'none' : 'flex';
+        submitBtn.style.display = currentStep === totalSteps ? 'flex' : 'none';
+    }
 }
 
 function validateCurrentStep() {
     const currentStepElement = document.getElementById(`step${currentStep}`);
+    if (!currentStepElement) {
+        return false;
+    }
+    
     const requiredFields = currentStepElement.querySelectorAll('[required]');
     
     for (let field of requiredFields) {
@@ -596,73 +626,65 @@ function validateCurrentStep() {
 // Location API functions
 async function loadProvinces() {
     try {
-        const apiUrl = `${NUSAKITA_API}/provinsi?pagination=false`;
-        console.log('🔄 Starting to load provinces from:', apiUrl);
-        console.log('🌐 NUSAKITA_API base:', NUSAKITA_API);
+
         
-        // Test if we can reach the API
-        console.log('📡 Attempting to fetch data...');
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
+        const apiUrl = `${WILAYAH_API}/provinces`;
         
-        console.log('📊 Response received:');
-        console.log('  - Status:', response.status);
-        console.log('  - Status Text:', response.statusText);
-        console.log('  - Headers:', Object.fromEntries(response.headers.entries()));
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
+        let response;
+        try {
+            // First attempt with normal CORS
+            response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                signal: controller.signal,
+                mode: 'cors'
+            });
+        } catch (corsError) {
+            console.log('⚠️ CORS error detected, trying alternative approach:', corsError.message);
+            // Fallback: try without custom headers
+            response = await fetch(apiUrl, {
+                method: 'GET',
+                signal: controller.signal,
+                mode: 'cors'
+            });
+        }
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
-            console.error('❌ HTTP Error Details:');
-            console.error('  - Status:', response.status);
-            console.error('  - Status Text:', response.statusText);
             const errorText = await response.text();
-            console.error('  - Response Body:', errorText);
             throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
         
-        console.log('✅ Response OK, parsing JSON...');
         const data = await response.json();
-        console.log('📋 Raw API Response:', data);
-        console.log('📋 Data type:', typeof data);
-        console.log('📋 Data keys:', Object.keys(data));
         
         const provinsiSelect = document.getElementById('provinsi');
-        provinsiSelect.innerHTML = '<option value="">Pilih Provinsi</option>';
+        provinsiSelect.innerHTML = '<option value="">Memuat provinsi...</option>';
+        provinsiSelect.disabled = true; // Disable while loading
         
         // Store province data for later use
         provinceData = {};
-        if (data.data && Array.isArray(data.data)) {
-            data.data.forEach(province => {
-                provinceData[province.nama] = province.kode;
+        if (Array.isArray(data)) {
+            // Clear loading message and add default option
+            provinsiSelect.innerHTML = '<option value="">Pilih Provinsi</option>';
+            provinsiSelect.disabled = false; // Re-enable after loading
+            
+            data.forEach(province => {
+                provinceData[province.name] = province.id;
                 const option = document.createElement('option');
-                option.value = province.nama;
-                option.textContent = province.nama;
+                option.value = province.name;
+                option.textContent = province.name;
                 provinsiSelect.appendChild(option);
             });
-            console.log('Provinces loaded successfully:', Object.keys(provinceData).length);
         } else {
-            console.error('❌ Invalid data structure received:');
-            console.error('  - Expected: { data: Array }');
-            console.error('  - Received:', data);
-            
-            // Try to handle different response formats
-            if (Array.isArray(data)) {
-                console.log('🔄 Data is array, trying direct processing...');
-                data.forEach(province => {
-                    provinceData[province.nama] = province.kode;
-                    const option = document.createElement('option');
-                    option.value = province.nama;
-                    option.textContent = province.nama;
-                    provinsiSelect.appendChild(option);
-                });
-                console.log('✅ Provinces loaded from direct array:', Object.keys(provinceData).length);
-            } else {
-                throw new Error('Invalid data structure received - not array or { data: array }');
-            }
+            throw new Error('Invalid data structure received - expected array');
         }
         
         // Remove existing event listener to prevent duplicates
@@ -677,28 +699,28 @@ async function loadProvinces() {
             }
         });
         
-        console.log('🎉 Province loading completed successfully!');
-        
     } catch (error) {
-        console.error('💥 Critical Error loading provinces:');
-        console.error('  - Error Type:', error.name);
-        console.error('  - Error Message:', error.message);
-        console.error('  - Stack Trace:', error.stack);
+        console.error('Error loading provinces:', error.message);
         
-        // Check if it's a network error
-        if (error.message.includes('fetch')) {
-            console.error('🌐 Network Error Detected - Possible causes:');
-            console.error('  1. Internet connection issue');
-            console.error('  2. API server is down');
-            console.error('  3. CORS policy blocking request');
-            console.error('  4. Firewall blocking external requests');
+        let errorMessage = 'Terjadi kesalahan tidak dikenal';
+        
+        // Handle different types of errors
+        if (error.name === 'AbortError') {
+            errorMessage = 'Koneksi timeout - API terlalu lama merespons';
+        } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Tidak dapat terhubung ke server API';
+        } else if (error.message.includes('HTTP error')) {
+            errorMessage = 'Server API mengembalikan error: ' + error.message;
+        } else {
+            errorMessage = error.message;
         }
         
         // Load fallback data for testing
-        console.log('🔄 Loading fallback province data...');
+        isOfflineMode = true;
+        updateApiStatus('offline', 'Mode Offline - Menggunakan data terbatas');
         loadFallbackProvinces();
         
-        showNotification('Gagal memuat data provinsi dari API. Menggunakan data fallback. Error: ' + error.message, 'error');
+        showNotification('Gagal memuat data provinsi dari API. Menggunakan data fallback. ' + errorMessage, 'error');
     }
 }
 
@@ -706,30 +728,31 @@ async function loadProvinces() {
 function loadFallbackProvinces() {
     console.log('📦 Loading fallback province data...');
     const fallbackProvinces = [
-        { kode: '11', nama: 'Aceh' },
-        { kode: '12', nama: 'Sumatera Utara' },
-        { kode: '13', nama: 'Sumatera Barat' },
-        { kode: '14', nama: 'Riau' },
-        { kode: '15', nama: 'Jambi' },
-        { kode: '16', nama: 'Sumatera Selatan' },
-        { kode: '17', nama: 'Bengkulu' },
-        { kode: '18', nama: 'Lampung' },
-        { kode: '31', nama: 'DKI Jakarta' },
-        { kode: '32', nama: 'Jawa Barat' },
-        { kode: '33', nama: 'Jawa Tengah' },
-        { kode: '34', nama: 'DI Yogyakarta' },
-        { kode: '35', nama: 'Jawa Timur' }
+        { id: '11', name: 'ACEH' },
+        { id: '12', name: 'SUMATERA UTARA' },
+        { id: '13', name: 'SUMATERA BARAT' },
+        { id: '14', name: 'RIAU' },
+        { id: '15', name: 'JAMBI' },
+        { id: '16', name: 'SUMATERA SELATAN' },
+        { id: '17', name: 'BENGKULU' },
+        { id: '18', name: 'LAMPUNG' },
+        { id: '31', name: 'DKI JAKARTA' },
+        { id: '32', name: 'JAWA BARAT' },
+        { id: '33', name: 'JAWA TENGAH' },
+        { id: '34', name: 'DI YOGYAKARTA' },
+        { id: '35', name: 'JAWA TIMUR' }
     ];
     
     const provinsiSelect = document.getElementById('provinsi');
-    provinsiSelect.innerHTML = '<option value="">Pilih Provinsi (Fallback Data)</option>';
+    provinsiSelect.innerHTML = '<option value="">Pilih Provinsi (Mode Offline)</option>';
+    provinsiSelect.disabled = false; // Re-enable in offline mode
     
     provinceData = {};
     fallbackProvinces.forEach(province => {
-        provinceData[province.nama] = province.kode;
+        provinceData[province.name] = province.id;
         const option = document.createElement('option');
-        option.value = province.nama;
-        option.textContent = province.nama;
+        option.value = province.name;
+        option.textContent = province.name;
         provinsiSelect.appendChild(option);
     });
     
@@ -739,7 +762,7 @@ function loadFallbackProvinces() {
     provinsiSelect.onchange = null;
     provinsiSelect.addEventListener('change', function() {
         if (this.value) {
-            loadCities(this.value);
+            loadFallbackCities(this.value);
         } else {
             resetSelect('kota');
             resetSelect('kecamatan');
@@ -748,18 +771,266 @@ function loadFallbackProvinces() {
     });
 }
 
+// Fallback cities data
+function loadFallbackCities(provinceName) {
+    console.log('📦 Loading fallback cities for:', provinceName);
+    
+    const fallbackCities = {
+        'DKI JAKARTA': [
+            { id: '3171', name: 'JAKARTA SELATAN' },
+            { id: '3172', name: 'JAKARTA TIMUR' },
+            { id: '3173', name: 'JAKARTA PUSAT' },
+            { id: '3174', name: 'JAKARTA BARAT' },
+            { id: '3175', name: 'JAKARTA UTARA' },
+            { id: '3176', name: 'KEPULAUAN SERIBU' }
+        ],
+        'JAWA BARAT': [
+            { id: '3201', name: 'KABUPATEN BOGOR' },
+            { id: '3202', name: 'SUKABUMI' },
+            { id: '3203', name: 'CIANJUR' },
+            { id: '3204', name: 'BANDUNG' },
+            { id: '3205', name: 'GARUT' },
+            { id: '3206', name: 'TASIKMALAYA' },
+            { id: '3207', name: 'CIAMIS' },
+            { id: '3208', name: 'KUNINGAN' },
+            { id: '3209', name: 'CIREBON' },
+            { id: '3210', name: 'MAJALENGKA' },
+            { id: '3211', name: 'SUMEDANG' },
+            { id: '3212', name: 'INDRAMAYU' },
+            { id: '3213', name: 'SUBANG' },
+            { id: '3214', name: 'PURWAKARTA' },
+            { id: '3215', name: 'KARAWANG' },
+            { id: '3216', name: 'BEKASI' },
+            { id: '3217', name: 'BANDUNG BARAT' },
+            { id: '3218', name: 'PANGANDARAN' },
+            { id: '3271', name: 'KOTA BOGOR' },
+            { id: '3272', name: 'KOTA SUKABUMI' },
+            { id: '3273', name: 'KOTA BANDUNG' },
+            { id: '3274', name: 'KOTA CIREBON' },
+            { id: '3275', name: 'KOTA BEKASI' },
+            { id: '3276', name: 'KOTA DEPOK' },
+            { id: '3277', name: 'KOTA CIMAHI' },
+            { id: '3278', name: 'KOTA TASIKMALAYA' },
+            { id: '3279', name: 'KOTA BANJAR' }
+        ]
+    };
+    
+    const cities = fallbackCities[provinceName] || [
+        { id: '0001', name: 'Kota/Kabupaten Tidak Tersedia (Mode Offline)' }
+    ];
+    
+    const kotaSelect = document.getElementById('kota');
+    kotaSelect.innerHTML = '<option value="">Pilih Kota/Kabupaten (Mode Offline)</option>';
+    kotaSelect.disabled = false;
+    
+    cityData = {};
+    cities.forEach(city => {
+        cityData[city.name] = city.id;
+        const option = document.createElement('option');
+        option.value = city.name;
+        option.textContent = city.name;
+        kotaSelect.appendChild(option);
+    });
+    
+    console.log('✅ Fallback cities loaded:', Object.keys(cityData).length);
+    
+    // Add event listener
+    kotaSelect.onchange = null;
+    kotaSelect.addEventListener('change', function() {
+        if (this.value) {
+            loadFallbackDistricts(this.value);
+        } else {
+            resetSelect('kecamatan');
+            resetSelect('kelurahan');
+        }
+    });
+}
+
+// Fallback districts data
+function loadFallbackDistricts(cityName) {
+    console.log('📦 Loading fallback districts for:', cityName);
+    
+    const fallbackDistricts = [
+        { id: '0001', name: 'Kecamatan 1 (Mode Offline)' },
+        { id: '0002', name: 'Kecamatan 2 (Mode Offline)' },
+        { id: '0003', name: 'Kecamatan 3 (Mode Offline)' }
+    ];
+    
+    const kecamatanSelect = document.getElementById('kecamatan');
+    kecamatanSelect.innerHTML = '<option value="">Pilih Kecamatan (Mode Offline)</option>';
+    kecamatanSelect.disabled = false;
+    
+    districtData = {};
+    fallbackDistricts.forEach(district => {
+        districtData[district.name] = district.id;
+        const option = document.createElement('option');
+        option.value = district.name;
+        option.textContent = district.name;
+        kecamatanSelect.appendChild(option);
+    });
+    
+    console.log('✅ Fallback districts loaded:', Object.keys(districtData).length);
+    
+    // Add event listener
+    kecamatanSelect.onchange = null;
+    kecamatanSelect.addEventListener('change', function() {
+        if (this.value) {
+            loadFallbackVillages(this.value);
+        } else {
+            resetSelect('kelurahan');
+        }
+    });
+}
+
+// Fallback villages data
+function loadFallbackVillages(districtName) {
+    console.log('📦 Loading fallback villages for:', districtName);
+    
+    const fallbackVillages = [
+        { id: '0001', name: 'Kelurahan/Desa 1 (Mode Offline)' },
+        { id: '0002', name: 'Kelurahan/Desa 2 (Mode Offline)' },
+        { id: '0003', name: 'Kelurahan/Desa 3 (Mode Offline)' }
+    ];
+    
+    const kelurahanSelect = document.getElementById('kelurahan');
+    kelurahanSelect.innerHTML = '<option value="">Pilih Kelurahan/Desa (Mode Offline)</option>';
+    kelurahanSelect.disabled = false;
+    
+    fallbackVillages.forEach(village => {
+        const option = document.createElement('option');
+        option.value = village.name;
+        option.textContent = village.name;
+        kelurahanSelect.appendChild(option);
+    });
+    
+    console.log('✅ Fallback villages loaded:', fallbackVillages.length);
+}
+
 async function loadCities(provinceName, selectedCity = null) {
     try {
-        const provinceCode = provinceData[provinceName];
-        console.log('Loading cities for province:', provinceName, 'with code:', provinceCode);
+        console.log('Loading cities for province:', provinceName);
         
-        if (!provinceCode) {
-            throw new Error('Province code not found for: ' + provinceName);
+        // First, get the province ID by fetching all provinces and searching by name
+        let provinceCode = provinceData[provinceName];
+        
+        // If exact match fails, try fuzzy matching with cached data first
+        if (!provinceCode && Object.keys(provinceData).length > 0) {
+            console.log('Exact match failed with cached data, trying fuzzy matching...');
+            const normalizedSearchName = provinceName.toLowerCase().trim();
+            
+            for (const [provName, provId] of Object.entries(provinceData)) {
+                const normalizedProvName = provName.toLowerCase().trim();
+                if (normalizedProvName === normalizedSearchName || 
+                    normalizedProvName.includes(normalizedSearchName) ||
+                    normalizedSearchName.includes(normalizedProvName)) {
+                    provinceCode = provId;
+                    console.log(`Fuzzy match found in cache: "${provinceName}" matched with "${provName}" (ID: ${provId})`);
+                    break;
+                }
+            }
         }
         
-        const url = `${NUSAKITA_API}/${provinceCode}/kab-kota?pagination=false`;
-        console.log('Fetching cities from:', url);
-        const response = await fetch(url);
+        if (!provinceCode) {
+            console.log('Province code not found in cache, fetching fresh data...');
+            
+            // Fetch provinces to get the latest data with timeout
+            const provincesController = new AbortController();
+            const provincesTimeoutId = setTimeout(() => provincesController.abort(), API_TIMEOUT);
+            
+            let provincesResponse;
+            try {
+                provincesResponse = await fetch(`${WILAYAH_API}/provinces`, {
+                    signal: provincesController.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+            } catch (corsError) {
+                console.log('⚠️ CORS error in provinces fetch, trying fallback:', corsError.message);
+                provincesResponse = await fetch(`${WILAYAH_API}/provinces`, {
+                    signal: provincesController.signal,
+                    mode: 'cors'
+                });
+            }
+            
+            clearTimeout(provincesTimeoutId);
+             
+             if (provincesResponse.ok) {
+                 const provincesData = await provincesResponse.json();
+                 console.log('Fresh provinces data received:', provincesData.length, 'provinces');
+                 
+                 // Update provinceData cache
+                 provinceData = {};
+                 if (Array.isArray(provincesData)) {
+                     provincesData.forEach(province => {
+                         provinceData[province.name] = province.id;
+                     });
+                     console.log('Updated province cache with', Object.keys(provinceData).length, 'provinces');
+                 } else {
+                     console.error('Invalid provinces data structure:', provincesData);
+                 }
+                 
+                 // Try to find the province code again with exact match first
+                  provinceCode = provinceData[provinceName];
+                  
+                  // If exact match fails, try fuzzy matching
+                  if (!provinceCode) {
+                      console.log('Exact match failed, trying fuzzy matching...');
+                      const normalizedSearchName = provinceName.toLowerCase().trim();
+                      
+                      for (const [provName, provId] of Object.entries(provinceData)) {
+                          const normalizedProvName = provName.toLowerCase().trim();
+                          if (normalizedProvName === normalizedSearchName || 
+                              normalizedProvName.includes(normalizedSearchName) ||
+                              normalizedSearchName.includes(normalizedProvName)) {
+                              provinceCode = provId;
+                              console.log(`Fuzzy match found: "${provinceName}" matched with "${provName}" (ID: ${provId})`);
+                              break;
+                          }
+                      }
+                  }
+                  
+                  console.log('Found province code after refresh:', provinceCode);
+             } else {
+                 console.error('Failed to fetch provinces, status:', provincesResponse.status);
+             }
+             
+             if (!provinceCode) {
+                 const availableProvinces = Object.keys(provinceData).slice(0, 5).join(', ');
+                 const moreCount = Math.max(0, Object.keys(provinceData).length - 5);
+                 const provincesList = moreCount > 0 ? `${availableProvinces} and ${moreCount} more` : availableProvinces;
+                 throw new Error(`Province code not found for: "${provinceName}". Available provinces: ${provincesList}`);
+             }
+        }
+        
+        const url = `${WILAYAH_API}/cities/${provinceCode}`;
+        console.log('Fetching cities from:', url, 'for province code:', provinceCode);
+        
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
+        let response;
+        try {
+            response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors'
+            });
+        } catch (corsError) {
+            console.log('⚠️ CORS error in loadCities, trying fallback:', corsError.message);
+            response = await fetch(url, {
+                signal: controller.signal,
+                mode: 'cors'
+            });
+        }
+        
+        clearTimeout(timeoutId);
         console.log('Cities response status:', response.status);
         
         if (!response.ok) {
@@ -775,13 +1046,13 @@ async function loadCities(provinceName, selectedCity = null) {
         
         // Store city data for later use
         cityData = {};
-        if (data.data && Array.isArray(data.data)) {
-            data.data.forEach(city => {
-                cityData[city.nama] = city.kode;
+        if (Array.isArray(data)) {
+            data.forEach(city => {
+                cityData[city.name] = city.id;
                 const option = document.createElement('option');
-                option.value = city.nama;
-                option.textContent = city.nama;
-                if (selectedCity && city.nama === selectedCity) {
+                option.value = city.name;
+                option.textContent = city.name;
+                if (selectedCity && city.name === selectedCity) {
                     option.selected = true;
                 }
                 kotaSelect.appendChild(option);
@@ -808,7 +1079,20 @@ async function loadCities(provinceName, selectedCity = null) {
         }
     } catch (error) {
         console.error('Error loading cities:', error);
-        showNotification('Gagal memuat data kota: ' + error.message, 'error');
+        
+        let errorMessage = 'Terjadi kesalahan tidak dikenal';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Koneksi timeout saat memuat data kota';
+        } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Tidak dapat terhubung ke server untuk data kota';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showNotification('Gagal memuat data kota: ' + errorMessage + '. Menggunakan mode offline.', 'error');
+        
+        // Load fallback cities if API fails
+        loadFallbackCities(provinceName);
     }
 }
 
@@ -819,7 +1103,34 @@ async function loadDistricts(cityName, selectedDistrict = null) {
             throw new Error('City code not found');
         }
         
-        const response = await fetch(`${NUSAKITA_API}/${cityCode}/kecamatan?pagination=false`);
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
+        let response;
+        try {
+            response = await fetch(`${WILAYAH_API}/districts/${cityCode}`, {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors'
+            });
+        } catch (corsError) {
+            console.log('⚠️ CORS error in loadDistricts, trying fallback:', corsError.message);
+            response = await fetch(`${WILAYAH_API}/districts/${cityCode}`, {
+                signal: controller.signal,
+                mode: 'cors'
+            });
+        }
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         const kecamatanSelect = document.getElementById('kecamatan');
@@ -828,16 +1139,18 @@ async function loadDistricts(cityName, selectedDistrict = null) {
         
         // Store district data for later use
         districtData = {};
-        data.data.forEach(district => {
-            districtData[district.nama] = district.kode;
-            const option = document.createElement('option');
-            option.value = district.nama;
-            option.textContent = district.nama;
-            if (selectedDistrict && district.nama === selectedDistrict) {
-                option.selected = true;
-            }
-            kecamatanSelect.appendChild(option);
-        });
+        if (Array.isArray(data)) {
+            data.forEach(district => {
+                districtData[district.name] = district.id;
+                const option = document.createElement('option');
+                option.value = district.name;
+                option.textContent = district.name;
+                if (selectedDistrict && district.name === selectedDistrict) {
+                    option.selected = true;
+                }
+                kecamatanSelect.appendChild(option);
+            });
+        }
         
         // Remove existing event listener to prevent duplicates
         kecamatanSelect.onchange = null;
@@ -854,7 +1167,20 @@ async function loadDistricts(cityName, selectedDistrict = null) {
         }
     } catch (error) {
         console.error('Error loading districts:', error);
-        showNotification('Gagal memuat data kecamatan', 'error');
+        
+        let errorMessage = 'Terjadi kesalahan tidak dikenal';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Koneksi timeout saat memuat data kecamatan';
+        } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Tidak dapat terhubung ke server untuk data kecamatan';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showNotification('Gagal memuat data kecamatan: ' + errorMessage + '. Menggunakan mode offline.', 'error');
+        
+        // Load fallback districts if API fails
+        loadFallbackDistricts(cityName);
     }
 }
 
@@ -865,25 +1191,67 @@ async function loadVillages(districtName, selectedVillage = null) {
             throw new Error('District code not found');
         }
         
-        const response = await fetch(`${NUSAKITA_API}/${districtCode}/desa-kel?pagination=false`);
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        
+        let response;
+        try {
+            response = await fetch(`${WILAYAH_API}/villages/${districtCode}`, {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors'
+            });
+        } catch (corsError) {
+            console.log('⚠️ CORS error in loadVillages, trying fallback:', corsError.message);
+            response = await fetch(`${WILAYAH_API}/villages/${districtCode}`, {
+                signal: controller.signal,
+                mode: 'cors'
+            });
+        }
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         const kelurahanSelect = document.getElementById('kelurahan');
         kelurahanSelect.innerHTML = '<option value="">Pilih Kelurahan/Desa</option>';
         kelurahanSelect.disabled = false;
         
-        data.data.forEach(village => {
-            const option = document.createElement('option');
-            option.value = village.nama;
-            option.textContent = village.nama;
-            if (selectedVillage && village.nama === selectedVillage) {
-                option.selected = true;
-            }
-            kelurahanSelect.appendChild(option);
-        });
+        if (Array.isArray(data)) {
+            data.forEach(village => {
+                const option = document.createElement('option');
+                option.value = village.name;
+                option.textContent = village.name;
+                if (selectedVillage && village.name === selectedVillage) {
+                    option.selected = true;
+                }
+                kelurahanSelect.appendChild(option);
+            });
+        }
     } catch (error) {
         console.error('Error loading villages:', error);
-        showNotification('Gagal memuat data kelurahan', 'error');
+        
+        let errorMessage = 'Terjadi kesalahan tidak dikenal';
+        if (error.name === 'AbortError') {
+            errorMessage = 'Koneksi timeout saat memuat data kelurahan';
+        } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Tidak dapat terhubung ke server untuk data kelurahan';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showNotification('Gagal memuat data kelurahan: ' + errorMessage + '. Menggunakan mode offline.', 'error');
+        
+        // Load fallback villages if API fails
+        loadFallbackVillages(districtName);
     }
 }
 
@@ -1014,6 +1382,93 @@ function initializeModalMap() {
     }
 }
 
+// API Status Management
+function updateApiStatus(status, message) {
+    const indicator = document.getElementById('apiStatusIndicator');
+    const icon = document.getElementById('statusIcon');
+    const text = document.getElementById('statusText');
+    
+    if (!indicator || !icon || !text) {
+        console.warn('API status elements not found');
+        return;
+    }
+    
+    // Show the indicator
+    indicator.classList.remove('hidden');
+    
+    // Update based on status
+    if (status === 'online') {
+        indicator.className = 'mb-4 p-3 rounded-lg border border-green-200 bg-green-50';
+        icon.className = 'w-3 h-3 rounded-full mr-2 bg-green-500';
+        text.className = 'text-sm font-medium text-green-800';
+    } else if (status === 'offline') {
+        indicator.className = 'mb-4 p-3 rounded-lg border border-orange-200 bg-orange-50';
+        icon.className = 'w-3 h-3 rounded-full mr-2 bg-orange-500';
+        text.className = 'text-sm font-medium text-orange-800';
+    } else if (status === 'loading') {
+        indicator.className = 'mb-4 p-3 rounded-lg border border-blue-200 bg-blue-50';
+        icon.className = 'w-3 h-3 rounded-full mr-2 bg-blue-500 animate-pulse';
+        text.className = 'text-sm font-medium text-blue-800';
+    }
+    
+    text.textContent = message;
+}
+
+// Wait for provinces to load before auto-filling
+function waitForProvincesAndAutoFill() {
+    const checkProvinces = () => {
+        const provinsiSelect = document.getElementById('provinsi');
+        const hasProvinces = provinsiSelect && provinsiSelect.options.length > 1;
+        
+        if (hasProvinces) {
+            autoFillFormData();
+        } else {
+            setTimeout(checkProvinces, 500);
+        }
+    };
+    
+    checkProvinces();
+}
+
+// Auto-fill form data for edit mode
+async function autoFillFormData() {
+    const laporanData = {
+        provinsi: '{{ isset($laporan) ? $laporan->provinsi : "" }}',
+        kota: '{{ isset($laporan) ? $laporan->kota : "" }}',
+        kecamatan: '{{ isset($laporan) ? $laporan->kecamatan : "" }}',
+        kelurahan: '{{ isset($laporan) ? $laporan->kelurahan : "" }}'
+    };
+    
+    try {
+        // Step 1: Set provinsi
+        if (laporanData.provinsi) {
+            const provinsiSelect = document.getElementById('provinsi');
+            provinsiSelect.value = laporanData.provinsi;
+            
+            // Step 2: Load and set kota
+            if (laporanData.kota) {
+                await loadCities(laporanData.provinsi, laporanData.kota);
+                
+                // Step 3: Load and set kecamatan
+                if (laporanData.kecamatan) {
+                    await loadDistricts(laporanData.kota, laporanData.kecamatan);
+                    
+                    // Step 4: Load and set kelurahan
+                    if (laporanData.kelurahan) {
+                        await loadVillages(laporanData.kecamatan, laporanData.kelurahan);
+                    }
+                }
+            }
+        }
+        
+        showNotification('Data laporan berhasil dimuat untuk diedit', 'success');
+        
+    } catch (error) {
+        console.error('Error during auto-fill:', error);
+        showNotification('Gagal memuat data laporan: ' + error.message, 'error');
+    }
+}
+
 // Utility functions
 function showNotification(message, type = 'info') {
     // Create notification element
@@ -1103,6 +1558,18 @@ function showNotification(message, type = 'info') {
 
 .modal-content::-webkit-scrollbar-thumb:hover {
     background: #A0AEC0;
+}
+
+/* Ensure buttons are clickable */
+#nextBtn, #prevBtn, #submitBtn {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 10 !important;
+}
+
+#nextBtn:hover, #prevBtn:hover, #submitBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>
 @endpush
