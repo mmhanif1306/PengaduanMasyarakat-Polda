@@ -6,6 +6,7 @@ use App\Models\Laporan;
 use App\Models\Notifikasi;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class LaporanController extends Controller
 {
@@ -94,5 +95,23 @@ class LaporanController extends Controller
         $notifikasi->save();
 
         return redirect()->route('admin.laporan.index')->with('success', 'Status laporan berhasil diupdate');
+    }
+
+    public function downloadPdf(Laporan $laporan)
+    {
+        $pdf = Pdf::loadView('admin.laporan.pdf', compact('laporan'));
+        
+        // Set paper size and orientation
+        $pdf->setPaper('A4', 'portrait');
+        
+        // Configure dompdf options to allow external images
+        $pdf->getDomPDF()->getOptions()->setIsRemoteEnabled(true);
+        $pdf->getDomPDF()->getOptions()->setIsHtml5ParserEnabled(true);
+        $pdf->getDomPDF()->getOptions()->setIsPhpEnabled(true);
+        
+        // Generate filename with report ID and current date
+        $filename = 'laporan_' . $laporan->id . '_' . date('Y-m-d') . '.pdf';
+        
+        return $pdf->download($filename);
     }
 }

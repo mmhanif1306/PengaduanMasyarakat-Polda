@@ -25,6 +25,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile'])->name('profile');
     Route::get('/profile/show', [AuthController::class, 'showProfile'])->name('profile.show');
     Route::put('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
+    
+    Route::get('/laporan/{laporan}/pdf', [AdminLaporanController::class, 'downloadPdf'])->name('laporan.pdf');
 });
 
 Route::middleware(['auth', 'user'])->group(function (){

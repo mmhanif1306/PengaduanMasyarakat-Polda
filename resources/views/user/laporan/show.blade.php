@@ -5,8 +5,8 @@
 @section('content')
     <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Back Button -->
-            <div class="mb-6">
+            <!-- Action Buttons -->
+            <div class="mb-6 flex flex-col sm:flex-row gap-4 sm:justify-between">
                 <a href="{{ route('laporan.index') }}"
                     class="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-xl shadow-md hover:shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200">
                     <svg class="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -15,6 +15,17 @@
                             clip-rule="evenodd" />
                     </svg>
                     Kembali ke Daftar Laporan
+                </a>
+                
+                <!-- Download PDF Button -->
+                <a href="{{ route('laporan.pdf', $laporan->id) }}"
+                    class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-xl shadow-md hover:shadow-lg hover:bg-red-700 transition-all duration-200 border border-red-600">
+                    <svg class="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Download PDF
                 </a>
             </div>
 
