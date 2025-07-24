@@ -48,6 +48,12 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
+# Create necessary directories and set permissions
+RUN mkdir -p /usr/local/etc/php-fpm.d/ && \
+    mkdir -p /var/log/php-fpm && \
+    chown -R www-data:www-data /usr/local/etc/php-fpm.d/ && \
+    chown -R www-data:www-data /var/log/php-fpm
+
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
