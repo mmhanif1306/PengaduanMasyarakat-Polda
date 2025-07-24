@@ -1,22 +1,5 @@
-# Multi-stage build untuk optimasi
-FROM node:18-alpine AS node-builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
-COPY . .
-
-# Build assets
-RUN npm run build
-
-# PHP Stage
-FROM php:8.2-fpm-alpine AS php-base
+# Laravel Docker Image
+FROM php:8.2-fpm-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -62,9 +45,6 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Copy application code
 COPY . .
-
-# Copy built assets from node stage
-COPY --from=node-builder /app/public/build ./public/build
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
