@@ -626,71 +626,63 @@ function validateCurrentStep() {
 // Location API functions
 async function loadProvinces() {
     try {
-
+        updateApiStatus('loading', 'Memuat data provinsi...');
         
-        const apiUrl = `${WILAYAH_API}/provinces`;
+        const apiUrl = 'https://api.nusakita.yuefii.site/v2/provinsi?pagination=false';
         
         // Create AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        let response;
-        try {
-            // First attempt with normal CORS
-            response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                signal: controller.signal,
-                mode: 'cors'
-            });
-        } catch (corsError) {
-            console.log('⚠️ CORS error detected, trying alternative approach:', corsError.message);
-            // Fallback: try without custom headers
-            response = await fetch(apiUrl, {
-                method: 'GET',
-                signal: controller.signal,
-                mode: 'cors'
-            });
-        }
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: controller.signal,
+            mode: 'cors'
+        });
         
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            const errorText = await response.text();
             throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
         
-        const data = await response.json();
+        const result = await response.json();
         
         const provinsiSelect = document.getElementById('provinsi');
         provinsiSelect.innerHTML = '<option value="">Memuat provinsi...</option>';
-        provinsiSelect.disabled = true; // Disable while loading
+        provinsiSelect.disabled = true;
         
         // Store province data for later use
         provinceData = {};
-        if (Array.isArray(data)) {
+        
+        if (result.data && Array.isArray(result.data)) {
             // Clear loading message and add default option
             provinsiSelect.innerHTML = '<option value="">Pilih Provinsi</option>';
-            provinsiSelect.disabled = false; // Re-enable after loading
+            provinsiSelect.disabled = false;
             
-            data.forEach(province => {
-                provinceData[province.name] = province.id;
+            result.data.forEach(province => {
+                provinceData[province.nama] = province.kode;
                 const option = document.createElement('option');
-                option.value = province.name;
-                option.textContent = province.name;
+                option.value = province.kode;
+                option.textContent = province.nama;
+                option.setAttribute('data-nama', province.nama);
                 provinsiSelect.appendChild(option);
             });
+            
+            updateApiStatus('online', `${result.data.length} provinsi berhasil dimuat`);
         } else {
-            throw new Error('Invalid data structure received - expected array');
+            throw new Error('Invalid data structure received');
         }
         
         // Remove existing event listener to prevent duplicates
         provinsiSelect.onchange = null;
         provinsiSelect.addEventListener('change', function() {
             if (this.value) {
+                // this.value now contains the province code directly
                 loadCities(this.value);
             } else {
                 resetSelect('kota');
@@ -906,160 +898,62 @@ function loadFallbackVillages(districtName) {
     console.log('✅ Fallback villages loaded:', fallbackVillages.length);
 }
 
-async function loadCities(provinceName, selectedCity = null) {
+async function loadCities(provinceCode, selectedCity = null) {
     try {
-        console.log('Loading cities for province:', provinceName);
+        console.log('Loading cities for province code:', provinceCode);
+        updateApiStatus('loading', 'Memuat data kabupaten/kota...');
         
-        // First, get the province ID by fetching all provinces and searching by name
-        let provinceCode = provinceData[provinceName];
-        
-        // If exact match fails, try fuzzy matching with cached data first
-        if (!provinceCode && Object.keys(provinceData).length > 0) {
-            console.log('Exact match failed with cached data, trying fuzzy matching...');
-            const normalizedSearchName = provinceName.toLowerCase().trim();
-            
-            for (const [provName, provId] of Object.entries(provinceData)) {
-                const normalizedProvName = provName.toLowerCase().trim();
-                if (normalizedProvName === normalizedSearchName || 
-                    normalizedProvName.includes(normalizedSearchName) ||
-                    normalizedSearchName.includes(normalizedProvName)) {
-                    provinceCode = provId;
-                    console.log(`Fuzzy match found in cache: "${provinceName}" matched with "${provName}" (ID: ${provId})`);
-                    break;
-                }
-            }
-        }
-        
-        if (!provinceCode) {
-            console.log('Province code not found in cache, fetching fresh data...');
-            
-            // Fetch provinces to get the latest data with timeout
-            const provincesController = new AbortController();
-            const provincesTimeoutId = setTimeout(() => provincesController.abort(), API_TIMEOUT);
-            
-            let provincesResponse;
-            try {
-                provincesResponse = await fetch(`${WILAYAH_API}/provinces`, {
-                    signal: provincesController.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    mode: 'cors'
-                });
-            } catch (corsError) {
-                console.log('⚠️ CORS error in provinces fetch, trying fallback:', corsError.message);
-                provincesResponse = await fetch(`${WILAYAH_API}/provinces`, {
-                    signal: provincesController.signal,
-                    mode: 'cors'
-                });
-            }
-            
-            clearTimeout(provincesTimeoutId);
-             
-             if (provincesResponse.ok) {
-                 const provincesData = await provincesResponse.json();
-                 console.log('Fresh provinces data received:', provincesData.length, 'provinces');
-                 
-                 // Update provinceData cache
-                 provinceData = {};
-                 if (Array.isArray(provincesData)) {
-                     provincesData.forEach(province => {
-                         provinceData[province.name] = province.id;
-                     });
-                     console.log('Updated province cache with', Object.keys(provinceData).length, 'provinces');
-                 } else {
-                     console.error('Invalid provinces data structure:', provincesData);
-                 }
-                 
-                 // Try to find the province code again with exact match first
-                  provinceCode = provinceData[provinceName];
-                  
-                  // If exact match fails, try fuzzy matching
-                  if (!provinceCode) {
-                      console.log('Exact match failed, trying fuzzy matching...');
-                      const normalizedSearchName = provinceName.toLowerCase().trim();
-                      
-                      for (const [provName, provId] of Object.entries(provinceData)) {
-                          const normalizedProvName = provName.toLowerCase().trim();
-                          if (normalizedProvName === normalizedSearchName || 
-                              normalizedProvName.includes(normalizedSearchName) ||
-                              normalizedSearchName.includes(normalizedProvName)) {
-                              provinceCode = provId;
-                              console.log(`Fuzzy match found: "${provinceName}" matched with "${provName}" (ID: ${provId})`);
-                              break;
-                          }
-                      }
-                  }
-                  
-                  console.log('Found province code after refresh:', provinceCode);
-             } else {
-                 console.error('Failed to fetch provinces, status:', provincesResponse.status);
-             }
-             
-             if (!provinceCode) {
-                 const availableProvinces = Object.keys(provinceData).slice(0, 5).join(', ');
-                 const moreCount = Math.max(0, Object.keys(provinceData).length - 5);
-                 const provincesList = moreCount > 0 ? `${availableProvinces} and ${moreCount} more` : availableProvinces;
-                 throw new Error(`Province code not found for: "${provinceName}". Available provinces: ${provincesList}`);
-             }
-        }
-        
-        const url = `${WILAYAH_API}/cities/${provinceCode}`;
-        console.log('Fetching cities from:', url, 'for province code:', provinceCode);
+        const apiUrl = `https://api.nusakita.yuefii.site/v2/${provinceCode}/kab-kota?pagination=false`;
         
         // Create AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        let response;
-        try {
-            response = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                mode: 'cors'
-            });
-        } catch (corsError) {
-            console.log('⚠️ CORS error in loadCities, trying fallback:', corsError.message);
-            response = await fetch(url, {
-                signal: controller.signal,
-                mode: 'cors'
-            });
-        }
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: controller.signal,
+            mode: 'cors'
+        });
         
         clearTimeout(timeoutId);
-        console.log('Cities response status:', response.status);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('Cities data:', data);
+        const result = await response.json();
+        console.log('Cities data received:', result);
         
         const kotaSelect = document.getElementById('kota');
-        kotaSelect.innerHTML = '<option value="">Pilih Kota/Kabupaten</option>';
-        kotaSelect.disabled = false;
+        kotaSelect.innerHTML = '<option value="">Memuat kabupaten/kota...</option>';
+        kotaSelect.disabled = true;
         
         // Store city data for later use
         cityData = {};
-        if (Array.isArray(data)) {
-            data.forEach(city => {
-                cityData[city.name] = city.id;
+        
+        if (result.data && Array.isArray(result.data)) {
+            kotaSelect.innerHTML = '<option value="">Pilih Kota/Kabupaten</option>';
+            kotaSelect.disabled = false;
+            
+            result.data.forEach(city => {
+                cityData[city.nama] = city.kode;
                 const option = document.createElement('option');
-                option.value = city.name;
-                option.textContent = city.name;
-                if (selectedCity && city.name === selectedCity) {
+                option.value = city.kode;
+                option.textContent = city.nama;
+                option.setAttribute('data-nama', city.nama);
+                if (selectedCity && city.kode === selectedCity) {
                     option.selected = true;
                 }
                 kotaSelect.appendChild(option);
             });
+            
+            updateApiStatus('online', `${result.data.length} kabupaten/kota berhasil dimuat`);
             console.log('Cities loaded successfully:', Object.keys(cityData).length);
         } else {
-            console.error('Invalid cities data structure:', data);
             throw new Error('Invalid cities data structure received');
         }
         
@@ -1067,6 +961,7 @@ async function loadCities(provinceName, selectedCity = null) {
         kotaSelect.onchange = null;
         kotaSelect.addEventListener('change', function() {
             if (this.value) {
+                // this.value now contains the city code directly
                 loadDistricts(this.value);
             } else {
                 resetSelect('kecamatan');
@@ -1089,67 +984,71 @@ async function loadCities(provinceName, selectedCity = null) {
             errorMessage = error.message;
         }
         
+        updateApiStatus('offline', 'Gagal memuat data kabupaten/kota');
         showNotification('Gagal memuat data kota: ' + errorMessage + '. Menggunakan mode offline.', 'error');
         
         // Load fallback cities if API fails
-        loadFallbackCities(provinceName);
+        loadFallbackCities(provinceCode);
     }
 }
 
-async function loadDistricts(cityName, selectedDistrict = null) {
+async function loadDistricts(cityCode, selectedDistrict = null) {
     try {
-        const cityCode = cityData[cityName];
-        if (!cityCode) {
-            throw new Error('City code not found');
-        }
+        console.log('Loading districts for city code:', cityCode);
+        updateApiStatus('loading', 'Memuat data kecamatan...');
+        
+        const apiUrl = `https://api.nusakita.yuefii.site/v2/${cityCode}/kecamatan?pagination=false`;
         
         // Create AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        let response;
-        try {
-            response = await fetch(`${WILAYAH_API}/districts/${cityCode}`, {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                mode: 'cors'
-            });
-        } catch (corsError) {
-            console.log('⚠️ CORS error in loadDistricts, trying fallback:', corsError.message);
-            response = await fetch(`${WILAYAH_API}/districts/${cityCode}`, {
-                signal: controller.signal,
-                mode: 'cors'
-            });
-        }
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: controller.signal,
+            mode: 'cors'
+        });
         
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
         
-        const data = await response.json();
+        const result = await response.json();
+        console.log('Districts data received:', result);
         
         const kecamatanSelect = document.getElementById('kecamatan');
-        kecamatanSelect.innerHTML = '<option value="">Pilih Kecamatan</option>';
-        kecamatanSelect.disabled = false;
+        kecamatanSelect.innerHTML = '<option value="">Memuat kecamatan...</option>';
+        kecamatanSelect.disabled = true;
         
         // Store district data for later use
         districtData = {};
-        if (Array.isArray(data)) {
-            data.forEach(district => {
-                districtData[district.name] = district.id;
+        
+        if (result.data && Array.isArray(result.data)) {
+            kecamatanSelect.innerHTML = '<option value="">Pilih Kecamatan</option>';
+            kecamatanSelect.disabled = false;
+            
+            result.data.forEach(district => {
+                districtData[district.nama] = district.kode;
                 const option = document.createElement('option');
-                option.value = district.name;
-                option.textContent = district.name;
-                if (selectedDistrict && district.name === selectedDistrict) {
+                option.value = district.kode;
+                option.textContent = district.nama;
+                option.setAttribute('data-nama', district.nama);
+                if (selectedDistrict && district.kode === selectedDistrict) {
                     option.selected = true;
                 }
                 kecamatanSelect.appendChild(option);
             });
+            
+            updateApiStatus('online', `${result.data.length} kecamatan berhasil dimuat`);
+            console.log('Districts loaded successfully:', Object.keys(districtData).length);
+        } else {
+            throw new Error('Invalid districts data structure received');
         }
         
         // Remove existing event listener to prevent duplicates
@@ -1177,64 +1076,67 @@ async function loadDistricts(cityName, selectedDistrict = null) {
             errorMessage = error.message;
         }
         
+        updateApiStatus('offline', 'Gagal memuat data kecamatan');
         showNotification('Gagal memuat data kecamatan: ' + errorMessage + '. Menggunakan mode offline.', 'error');
         
         // Load fallback districts if API fails
-        loadFallbackDistricts(cityName);
+        loadFallbackDistricts(cityCode);
     }
 }
 
-async function loadVillages(districtName, selectedVillage = null) {
+async function loadVillages(districtCode, selectedVillage = null) {
     try {
-        const districtCode = districtData[districtName];
-        if (!districtCode) {
-            throw new Error('District code not found');
-        }
+        console.log('Loading villages for district code:', districtCode);
+        updateApiStatus('loading', 'Memuat data desa/kelurahan...');
+        
+        const apiUrl = `https://api.nusakita.yuefii.site/v2/${districtCode}/desa-kel?pagination=false`;
         
         // Create AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
         
-        let response;
-        try {
-            response = await fetch(`${WILAYAH_API}/villages/${districtCode}`, {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                mode: 'cors'
-            });
-        } catch (corsError) {
-            console.log('⚠️ CORS error in loadVillages, trying fallback:', corsError.message);
-            response = await fetch(`${WILAYAH_API}/villages/${districtCode}`, {
-                signal: controller.signal,
-                mode: 'cors'
-            });
-        }
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: controller.signal,
+            mode: 'cors'
+        });
         
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
         
-        const data = await response.json();
+        const result = await response.json();
+        console.log('Villages data received:', result);
         
         const kelurahanSelect = document.getElementById('kelurahan');
-        kelurahanSelect.innerHTML = '<option value="">Pilih Kelurahan/Desa</option>';
-        kelurahanSelect.disabled = false;
+        kelurahanSelect.innerHTML = '<option value="">Memuat desa/kelurahan...</option>';
+        kelurahanSelect.disabled = true;
         
-        if (Array.isArray(data)) {
-            data.forEach(village => {
+        if (result.data && Array.isArray(result.data)) {
+            kelurahanSelect.innerHTML = '<option value="">Pilih Kelurahan/Desa</option>';
+            kelurahanSelect.disabled = false;
+            
+            result.data.forEach(village => {
                 const option = document.createElement('option');
-                option.value = village.name;
-                option.textContent = village.name;
-                if (selectedVillage && village.name === selectedVillage) {
+                option.value = village.kode;
+                option.textContent = village.nama;
+                option.setAttribute('data-nama', village.nama);
+                if (selectedVillage && village.kode === selectedVillage) {
                     option.selected = true;
                 }
                 kelurahanSelect.appendChild(option);
             });
+            
+            updateApiStatus('online', `${result.data.length} desa/kelurahan berhasil dimuat`);
+            console.log('Villages loaded successfully:', result.data.length);
+        } else {
+            throw new Error('Invalid villages data structure received');
         }
     } catch (error) {
         console.error('Error loading villages:', error);
@@ -1248,10 +1150,11 @@ async function loadVillages(districtName, selectedVillage = null) {
             errorMessage = error.message;
         }
         
+        updateApiStatus('offline', 'Gagal memuat data desa/kelurahan');
         showNotification('Gagal memuat data kelurahan: ' + errorMessage + '. Menggunakan mode offline.', 'error');
         
         // Load fallback villages if API fails
-        loadFallbackVillages(districtName);
+        loadFallbackVillages(districtCode);
     }
 }
 
