@@ -42,11 +42,11 @@ class LaporanController extends Controller
             $query->where('kota', $request->kota);
         }
 
-        // Get unique status for filter dropdown
-        $statuses = Laporan::distinct('status')->pluck('status')->filter();
+        /// Get unique status for filter dropdown
+        $statuses = Laporan::select('status')->distinct()->pluck('status')->filter();
 
         // Get unique provinces for filter dropdown
-        $provinces = Laporan::distinct('provinsi')->pluck('provinsi')->filter();
+        $provinces = Laporan::select('provinsi')->distinct()->pluck('provinsi')->filter();
 
         // Get total items for current filter
         $totalItems = $query->count();
@@ -99,7 +99,7 @@ class LaporanController extends Controller
 
     public function downloadPdf(Laporan $laporan)
     {
-        $pdf = Pdf::loadView('admin.laporan.pdf', compact('laporan'));
+        $pdf = Pdf::loadView('laporan.pdf', compact('laporan'));
         
         // Set paper size and orientation
         $pdf->setPaper('A4', 'portrait');
