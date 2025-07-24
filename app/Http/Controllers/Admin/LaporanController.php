@@ -99,7 +99,7 @@ class LaporanController extends Controller
 
     public function downloadPdf(Laporan $laporan)
     {
-        $pdf = Pdf::loadView('laporan.pdf', compact('laporan'));
+        $pdf = Pdf::loadView('admin.laporan.pdf', compact('laporan'));
         
         // Set paper size and orientation
         $pdf->setPaper('A4', 'portrait');
