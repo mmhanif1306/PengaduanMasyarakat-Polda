@@ -37,14 +37,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files
-COPY composer*.json ./
+# Copy application code
+COPY . .
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Copy application code
-COPY . .
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
