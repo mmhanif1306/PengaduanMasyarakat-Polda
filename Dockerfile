@@ -50,9 +50,11 @@ RUN chown -R www-data:www-data /var/www/html \
 
 # Create necessary directories and set permissions
 RUN mkdir -p /usr/local/etc/php-fpm.d/ && \
-    mkdir -p /var/log/php-fpm && \
     chown -R www-data:www-data /usr/local/etc/php-fpm.d/ && \
-    chown -R www-data:www-data /var/log/php-fpm
+    mkdir -p /var/log/php-fpm && \
+    chown -R www-data:www-data /var/log/php-fpm && \
+    touch /var/log/php-fpm/www.log && \
+    chown www-data:www-data /var/log/php-fpm/www.log
 
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/nginx.conf
