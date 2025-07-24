@@ -49,8 +49,7 @@ db-shell: ## Access database shell
 composer: ## Run composer install
 	docker-compose exec app composer install
 
-npm: ## Run npm install
-	docker-compose exec app npm install
+# Note: NPM commands removed - not using npm in this project
 
 artisan: ## Run artisan command (usage: make artisan cmd="migrate")
 	docker-compose exec app php artisan $(cmd)
@@ -110,10 +109,19 @@ setup: ## Initial setup for development
 	@echo "Application: http://localhost:8000"
 	@echo "phpMyAdmin: http://localhost:8081"
 
+setup-dev: ## Setup development environment
+	docker-compose -f docker-compose.dev.yml build
+	docker-compose -f docker-compose.dev.yml up -d
+	sleep 10
+	docker-compose -f docker-compose.dev.yml exec app composer install
+	docker-compose -f docker-compose.dev.yml exec app php artisan key:generate
+	docker-compose -f docker-compose.dev.yml exec app php artisan migrate
+
 setup-prod: ## Initial setup for production
 	make build
 	make up
-	sleep 30
+	sleep 15
+	make composer
 	make migrate
 	make cache-optimize
 	@echo "Production environment is ready!"

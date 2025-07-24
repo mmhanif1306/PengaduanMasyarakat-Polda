@@ -15,8 +15,6 @@ RUN apk add --no-cache \
     icu-dev \
     supervisor \
     nginx \
-    nodejs \
-    npm \
     postgresql-dev
 
 # Install PHP extensions
