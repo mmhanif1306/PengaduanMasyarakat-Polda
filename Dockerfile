@@ -59,6 +59,9 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
 
+# Fix ownership of PHP-FPM configuration
+RUN chown www-data:www-data /usr/local/etc/php-fpm.d/www.conf
+
 # Create directories
 RUN mkdir -p /var/log/supervisor
 
