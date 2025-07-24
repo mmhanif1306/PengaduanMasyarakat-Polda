@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pengaduan-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8000:8000"
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./.env:/var/www/html/.env
+    depends_on:
+      - redis
+    networks:
+      - pengaduan-network
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7-alpine
+    container_name: pengaduan-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pengaduan-network
+
+volumes:
+  redis_data:
+
+networks:
+  pengaduan-network:
+    driver: bridge
