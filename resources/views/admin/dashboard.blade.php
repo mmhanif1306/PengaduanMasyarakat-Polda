@@ -227,7 +227,7 @@
                                         <div class="flex-shrink-0">
                                             @if ($user->url_file)
                                                 <img class="h-10 w-10 rounded-full object-cover"
-                                                    src="{{ asset('storage/' . $user->url_file) }}"
+                                                    src="{{ $user->url_file }}"
                                                     alt="{{ $user->nama ?? $user->name }}">
                                             @else
                                                 <div
