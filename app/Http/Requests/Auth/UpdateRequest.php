@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateRequest extends FormRequest
 {
@@ -22,7 +23,7 @@ class UpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "email" => "nullable|email|unique:users,email",
+            "email" => "nullable|email|unique:users,email," . Auth::user()->id,
             "password" => "nullable|min:8",
             "no_telp" => "nullable|numeric|digits_between:10,13",
             "image" => "nullable|image|mimes:jpeg,png,jpg|max:2048",
